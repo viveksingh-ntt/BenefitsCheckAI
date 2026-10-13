@@ -42,6 +42,10 @@ SAFE_DATA = {
     "planRef": ("plan_ref", re.compile(r"^pln_[a-z0-9_]{1,60}$")),
     "category": ("category", re.compile(r"^[a-z][a-z -]{1,40}$")),
     "query": ("query", re.compile(r"^[\w ,.'’-]{2,120}$")),
+    # startJourney params used by portal buttons
+    "serviceCode": ("service_code", re.compile(r"^[a-z0-9-]{2,40}$")),
+    "radiusMiles": ("radius_miles", re.compile(r"^\d{1,2}$")),
+    "prompt": ("request", re.compile(r"^[\w ,.'’?!-]{2,300}$")),
 }
 
 AGENT_VERBS = {

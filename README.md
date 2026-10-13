@@ -43,6 +43,8 @@ flowchart LR
 | `handoff/` | n8n workflow | Checks the webhook signature, creates a ticket, notifies the care team and returns the ticket ref. |
 | `services/foundry-local`, `clients/portal-dev` | Local stand-ins | A scripted Foundry and APIM stand-in (not an LLM), plus a portal host page and BFF sample, so the whole stack runs on a laptop. |
 
+**Technical documentation:** [docs/technical](docs/technical/README.md) has sequence diagrams across all layers and a page for every file.
+
 Design notes: [architecture](docs/architecture.md) · [identity and security](docs/identity-and-security.md) · [deployment runbook](docs/deployment-runbook.md) · [operations](docs/operations.md) · [agents](agents/README.md)
 
 ## Run it locally

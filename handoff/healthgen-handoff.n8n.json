@@ -1,0 +1,109 @@
+{
+  "name": "HealthGen care hand-off",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "healthgen-handoff",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b1f7c0de-0001-4c1a-9a01-000000000001",
+      "name": "Hand-off webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "healthgen-handoff"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verifies X-HealthGen-Signature = sha256=HMAC(secret, timestamp + '.' + body) and a 5-minute timestamp window.\n// Requires NODE_FUNCTION_ALLOW_BUILTIN=crypto and the HEALTHGEN_HANDOFF_SECRET environment variable on the n8n host.\nconst crypto = require('crypto');\nconst item = $input.first().json;\nconst headers = item.headers || {};\nconst ts = headers['x-healthgen-timestamp'] || '';\nconst sig = headers['x-healthgen-signature'] || '';\nconst secret = $env.HEALTHGEN_HANDOFF_SECRET || '';\nconst expected = 'sha256=' + crypto.createHmac('sha256', secret).update(ts + '.' + JSON.stringify(item.body)).digest('hex');\nconst fresh = Math.abs(Date.now() / 1000 - Number(ts)) < 300;\nconst valid = secret.length > 0 && fresh && sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));\nconst b = item.body || {};\nconst allowedReasons = ['user_request', 'out_of_scope', 'complaint', 'clinical', 'system_error'];\nreturn [{ json: {\n  valid,\n  session_ref: String(b.session_ref || '').slice(0, 40),\n  audience: b.audience === 'provider' ? 'provider' : 'member',\n  reason: allowedReasons.includes(b.reason) ? b.reason : 'user_request',\n  topic: String(b.topic || '').slice(0, 200),\n  priority: b.reason === 'clinical' || b.reason === 'complaint' ? 'high' : 'normal'\n} }];"
+      },
+      "id": "b1f7c0de-0002-4c1a-9a01-000000000002",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1f7c0de-0003-4c1a-9a01-000000000003",
+      "name": "Signed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ticket reference. Replace with the create-case call to your CRM (Dynamics 365, Salesforce, ServiceNow).\nconst j = $input.first().json;\nconst ticket_ref = 'HO-' + Math.floor(1000 + Math.random() * 9000);\nconst queue = j.audience === 'provider' ? 'provider-services' : 'care-team';\nreturn [{ json: { ...j, ticket_ref, queue, expected_response: j.priority === 'high' ? 'under 5 minutes during business hours' : 'under 10 minutes during business hours' } }];"
+      },
+      "id": "b1f7c0de-0004-4c1a-9a01-000000000004",
+      "name": "Create ticket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.HEALTHGEN_CARE_TEAM_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: `New ${$json.priority} hand-off ${$json.ticket_ref} (${$json.queue}): ${$json.reason}. Topic: ${$json.topic}. Open the conversation with session ${$json.session_ref} in the agent console.` }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "b1f7c0de-0005-4c1a-9a01-000000000005",
+      "name": "Notify care team",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, -100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ticket_ref: $('Create ticket').first().json.ticket_ref, queue: $('Create ticket').first().json.queue, expected_response: $('Create ticket').first().json.expected_response }) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "b1f7c0de-0006-4c1a-9a01-000000000006",
+      "name": "Return ticket",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, -100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\":\"invalid signature\"}",
+        "options": { "responseCode": 401 }
+      },
+      "id": "b1f7c0de-0007-4c1a-9a01-000000000007",
+      "name": "Reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [720, 120]
+    }
+  ],
+  "connections": {
+    "Hand-off webhook": { "main": [[{ "node": "Verify signature", "type": "main", "index": 0 }]] },
+    "Verify signature": { "main": [[{ "node": "Signed?", "type": "main", "index": 0 }]] },
+    "Signed?": { "main": [[{ "node": "Create ticket", "type": "main", "index": 0 }], [{ "node": "Reject", "type": "main", "index": 0 }]] },
+    "Create ticket": { "main": [[{ "node": "Notify care team", "type": "main", "index": 0 }]] },
+    "Notify care team": { "main": [[{ "node": "Return ticket", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

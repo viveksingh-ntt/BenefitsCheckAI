@@ -1,0 +1,53 @@
+<!--
+  APIM API "healthgen-mcp"  (path: /mcp/healthgen, backend: the MCP container app, internal ingress)
+  Caller: the Foundry project's managed identity (the healthgen-mcp project connection, audience api://healthgen-mcp).
+  APIM validates the caller, applies limits, then calls the MCP server with APIM's own managed identity.
+  The RFC 8693 exchange of session_ref for a member-scoped core token happens inside the MCP server against the
+  identity broker, per tool call, because it needs session_ref/action_id from the MCP request body.
+
+  Named values: tenant-id, foundry-project-mi-client-id
+-->
+<policies>
+  <inbound>
+    <base />
+    <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized" require-scheme="Bearer">
+      <openid-config url="https://login.microsoftonline.com/{{tenant-id}}/v2.0/.well-known/openid-configuration" />
+      <audiences>
+        <audience>api://healthgen-mcp</audience>
+      </audiences>
+      <issuers>
+        <issuer>https://login.microsoftonline.com/{{tenant-id}}/v2.0</issuer>
+        <issuer>https://sts.windows.net/{{tenant-id}}/</issuer>
+      </issuers>
+      <required-claims>
+        <claim name="appid" match="any">
+          <value>{{foundry-project-mi-client-id}}</value>
+        </claim>
+      </required-claims>
+    </validate-jwt>
+    <!-- Only the MCP endpoint, only POST (stateless JSON responses; no GET SSE stream) -->
+    <choose>
+      <when condition="@(!context.Request.Url.Path.TrimEnd('/').EndsWith("/mcp") || context.Request.Method != "POST")">
+        <return-response>
+          <set-status code="405" reason="Method not allowed" />
+        </return-response>
+      </when>
+      <when condition="@(context.Request.Body.As<string>(preserveContent: true).Length > 65536)">
+        <return-response>
+          <set-status code="413" reason="Too large" />
+        </return-response>
+      </when>
+    </choose>
+    <rate-limit-by-key calls="300" renewal-period="60" counter-key="@(context.Request.IpAddress)" />
+    <authentication-managed-identity resource="api://healthgen-mcp" />
+  </inbound>
+  <backend>
+    <forward-request timeout="95" />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

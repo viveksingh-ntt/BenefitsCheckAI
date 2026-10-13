@@ -132,7 +132,7 @@ class HandoffClient:
 
         if not self.url:
             raise UpstreamError(503, "handoff_not_configured")
-        raw = json.dumps(payload, separators=(",", ":")).encode()
+        raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()  # == JSON.stringify in n8n
         ts = str(int(time.time()))
         sig = hmac.new(self.secret.encode(), ts.encode() + b"." + raw, hashlib.sha256).hexdigest()
         return _request(self._opener, "POST", self.url, {"Content-Type": "application/json", "X-HealthGen-Timestamp": ts,

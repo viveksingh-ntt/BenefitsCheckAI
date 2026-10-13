@@ -1,0 +1,56 @@
+# Foundry project connections the agents reference as ${conn:<name>}.
+# deploy_agents.py PUTs each one to ARM:
+#   PUT https://management.azure.com/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/
+#       accounts/{account}/projects/{project}/connections/{name}?api-version=2025-04-01-preview
+# `properties` is sent as-is after ${...} substitution. Equivalent `azd ai connection create` commands are in
+# docs/deployment-runbook.md if you prefer the CLI or need to adjust a field the API rejects.
+connections:
+  - name: healthgen-search
+    # Azure AI Search with the project's managed identity (needs "Search Index Data Reader" on the search service).
+    properties:
+      category: CognitiveSearch
+      authType: AAD
+      target: https://${SEARCH_SERVICE_NAME}.search.windows.net
+      isSharedToAll: true
+      metadata:
+        ApiType: Azure
+        ResourceId: /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Search/searchServices/${SEARCH_SERVICE_NAME}
+
+  - name: healthgen-mcp
+    # HealthGen MCP data spoke. The project's managed identity gets an Entra token for the MCP app (audience);
+    # the MCP server (or APIM in front of it) validates it. Verify category/authType in the portal after the first
+    # deploy: they map to `azd ai connection create --kind remote-tool --auth-type project-managed-identity`.
+    properties:
+      category: RemoteTool
+      authType: ProjectManagedIdentity
+      target: ${MCP_SERVER_URL}
+      audience: ${MCP_AUDIENCE}
+      isSharedToAll: true
+      metadata:
+        type: mcp
+
+  - name: a2a-benefit-check
+    # Foundry agent → Foundry agent over A2A 1.0. The calling agent's identity needs "Foundry Agent Consumer"
+    # (eed3b665-ab3a-47b6-8f48-c9382fb1dad6) on the project.
+    properties:
+      category: RemoteA2A
+      group: ServicesAndApps
+      authType: AgenticIdentityToken
+      target: ${PROJECT_ENDPOINT}/agents/healthgen-benefit-check/endpoint/protocols/a2a
+      audience: https://ai.azure.com
+      isSharedToAll: true
+      Credentials: {}
+      metadata:
+        ApiType: Azure
+
+  - name: a2a-plan-faq
+    properties:
+      category: RemoteA2A
+      group: ServicesAndApps
+      authType: AgenticIdentityToken
+      target: ${PROJECT_ENDPOINT}/agents/healthgen-plan-faq/endpoint/protocols/a2a
+      audience: https://ai.azure.com
+      isSharedToAll: true
+      Credentials: {}
+      metadata:
+        ApiType: Azure

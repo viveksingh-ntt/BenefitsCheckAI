@@ -1,0 +1,134 @@
+<!--
+  APIM API "healthgen-agent-gateway"  (path: /foundry, backend: https://{FOUNDRY_ACCOUNT}.services.ai.azure.com)
+  Caller: the agent relay only. Two credentials on every request:
+    Authorization  : Entra token of the relay's managed identity, audience api://healthgen-agent-gateway
+    X-User-Context : broker-signed JWT for the end user's session (sid, role), 10 minute lifetime
+  APIM then calls Foundry with its OWN managed identity (Foundry User role on the project), so the relay never
+  holds Foundry data-plane rights.
+
+  Named values to create: tenant-id, relay-client-id, broker-issuer, broker-openid-config-url,
+  foundry-project, triage-agent-name, broker-base-url (internal URL of the identity broker).
+-->
+<policies>
+  <inbound>
+    <base />
+    <!-- 1. Only the relay's managed identity -->
+    <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized" require-scheme="Bearer">
+      <openid-config url="https://login.microsoftonline.com/{{tenant-id}}/v2.0/.well-known/openid-configuration" />
+      <audiences>
+        <audience>api://healthgen-agent-gateway</audience>
+      </audiences>
+      <issuers>
+        <issuer>https://login.microsoftonline.com/{{tenant-id}}/v2.0</issuer>
+        <issuer>https://sts.windows.net/{{tenant-id}}/</issuer>
+      </issuers>
+      <required-claims>
+        <claim name="appid" match="any" separator=",">
+          <value>{{relay-client-id}}</value>
+        </claim>
+      </required-claims>
+    </validate-jwt>
+
+    <!-- 2. A live end-user session from the identity broker -->
+    <validate-jwt header-name="X-User-Context" failed-validation-httpcode="401" failed-validation-error-message="Session required" output-token-variable-name="userContext">
+      <openid-config url="{{broker-openid-config-url}}" />
+      <audiences>
+        <audience>healthgen-agent-gateway</audience>
+      </audiences>
+      <issuers>
+        <issuer>{{broker-issuer}}</issuer>
+      </issuers>
+      <required-claims>
+        <claim name="role" match="any">
+          <value>member</value>
+          <value>provider</value>
+        </claim>
+      </required-claims>
+    </validate-jwt>
+    <set-variable name="sid" value="@(((Jwt)context.Variables["userContext"]).Claims.GetValueOrDefault("sid", ""))" />
+
+    <!-- Revocation: is the session still active? (portal logout ends it). Cached for 60 s per session. -->
+    <cache-lookup-value key="@("ses-active-" + (string)context.Variables["sid"])" variable-name="sessionActive" />
+    <choose>
+      <when condition="@(!context.Variables.ContainsKey("sessionActive"))">
+        <send-request mode="new" response-variable-name="sessionStatus" timeout="5" ignore-error="false">
+          <set-url>@("{{broker-base-url}}/v1/sessions/" + (string)context.Variables["sid"] + "/status")</set-url>
+          <set-method>GET</set-method>
+          <authentication-managed-identity resource="api://healthgen-identity-broker" />
+        </send-request>
+        <set-variable name="sessionActive" value="@(((IResponse)context.Variables["sessionStatus"]).Body.As<JObject>()["active"]?.Value<bool>() == true ? "yes" : "no")" />
+        <cache-store-value key="@("ses-active-" + (string)context.Variables["sid"])" value="@((string)context.Variables["sessionActive"])" duration="60" />
+      </when>
+    </choose>
+    <choose>
+      <when condition="@((string)context.Variables["sessionActive"] != "yes")">
+        <return-response>
+          <set-status code="401" reason="Session ended" />
+        </return-response>
+      </when>
+    </choose>
+
+    <!-- 3. Guardrails on what the relay may ask Foundry to do -->
+    <rate-limit-by-key calls="30" renewal-period="60" counter-key="@((string)context.Variables["sid"])" increment-condition="@(context.Request.Method == "POST")" />
+    <choose>
+      <when condition="@(context.Request.Url.Path.EndsWith("/openai/v1/responses"))">
+        <set-variable name="body" value="@(context.Request.Body.As<JObject>(preserveContent: true))" />
+        <choose>
+          <!-- Only the triage agent, by reference. No ad-hoc models, instructions or tools from the caller. -->
+          <when condition="@{
+              var b = (JObject)context.Variables["body"];
+              var name = (string)b.SelectToken("agent_reference.name");
+              return name != "{{triage-agent-name}}" || b["model"] != null || b["instructions"] != null || b["tools"] != null;
+          }">
+            <return-response>
+              <set-status code="403" reason="Request not allowed" />
+              <set-body>{"error":{"code":"gateway_policy","message":"Only the configured agent may be invoked."}}</set-body>
+            </return-response>
+          </when>
+          <!-- Input size guard (the relay already caps user text at 2,000 characters) -->
+          <when condition="@(context.Request.Body.As<string>(preserveContent: true).Length > 20000)">
+            <return-response>
+              <set-status code="413" reason="Too large" />
+            </return-response>
+          </when>
+        </choose>
+        <!-- Optional: Prompt Shields / content safety on the user input. Needs an Azure AI Content Safety backend
+             named "content-safety". Uncomment after creating it (see docs/deployment-runbook.md, step 9).
+        <llm-content-safety backend-id="content-safety" shield-prompt="true">
+          <categories output-type="EightSeverityLevels">
+            <category name="Hate" threshold="4" />
+            <category name="Violence" threshold="4" />
+            <category name="SelfHarm" threshold="2" />
+            <category name="Sexual" threshold="4" />
+          </categories>
+        </llm-content-safety>
+        -->
+      </when>
+      <when condition="@(context.Request.Url.Path.EndsWith("/openai/v1/conversations") &amp;&amp; context.Request.Method == "POST")" />
+      <otherwise>
+        <return-response>
+          <set-status code="404" reason="Not found" />
+        </return-response>
+      </otherwise>
+    </choose>
+
+    <!-- 4. Forward with APIM's identity; strip the caller's credentials -->
+    <set-header name="X-User-Context" exists-action="delete" />
+    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
+    <authentication-managed-identity resource="https://ai.azure.com" />
+    <set-header name="x-ms-client-request-id" exists-action="override">
+      <value>@(context.RequestId.ToString())</value>
+    </set-header>
+  </inbound>
+  <backend>
+    <forward-request timeout="150" />
+  </backend>
+  <outbound>
+    <base />
+    <set-header name="x-ms-request-id" exists-action="delete" />
+    <set-header name="apim-request-id" exists-action="delete" />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

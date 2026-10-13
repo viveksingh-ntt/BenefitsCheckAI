@@ -1,0 +1,129 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Choose a service and ZIP code in the portal's Find Care page.",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "${title}",
+      "weight": "Bolder",
+      "size": "Medium",
+      "wrap": true,
+      "style": "heading"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${subtitle}",
+      "isSubtle": true,
+      "size": "Small",
+      "spacing": "None",
+      "wrap": true
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Medium",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "Input.Text",
+              "id": "zip",
+              "label": "ZIP code",
+              "value": "${zip}",
+              "isRequired": true,
+              "regex": "\\d{5}",
+              "errorMessage": "Enter a 5-digit ZIP code.",
+              "style": "tel",
+              "maxLength": 5
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "Input.ChoiceSet",
+              "id": "distance",
+              "label": "Distance",
+              "style": "compact",
+              "value": "${distance}",
+              "choices": [
+                {
+                  "$data": "${distanceOptions}",
+                  "title": "${title}",
+                  "value": "${value}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Org.SelectableList",
+      "id": "serviceRef",
+      "label": "Choose a service",
+      "value": "${selected}",
+      "isRequired": true,
+      "errorMessage": "Choose an option.",
+      "spacing": "Medium",
+      "items": [
+        {
+          "$data": "${services}",
+          "value": "${ref}",
+          "title": "${name}",
+          "description": "${description}"
+        }
+      ],
+      "fallback": {
+        "type": "Input.ChoiceSet",
+        "id": "serviceRef",
+        "label": "Choose a service",
+        "style": "expanded",
+        "value": "${selected}",
+        "isRequired": true,
+        "choices": [
+          {
+            "$data": "${services}",
+            "title": "${name}",
+            "value": "${ref}"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${notice}",
+          "size": "Small",
+          "wrap": true,
+          "isSubtle": true
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "title": "Find doctors",
+      "verb": "providers.search",
+      "style": "positive"
+    },
+    {
+      "type": "Action.Execute",
+      "title": "Service details",
+      "verb": "service.details",
+      "data": {
+        "keepActive": true
+      }
+    }
+  ]
+}

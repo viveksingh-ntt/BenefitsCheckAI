@@ -1,0 +1,91 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Open the portal to see appointment times.",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Available times",
+      "weight": "Bolder",
+      "size": "Medium",
+      "wrap": true,
+      "style": "heading"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${doctor.name} · ${doctor.practice} · ${service}",
+      "isSubtle": true,
+      "size": "Small",
+      "spacing": "None",
+      "wrap": true
+    },
+    {
+      "type": "Org.SelectableList",
+      "id": "slotRef",
+      "label": "Choose a time",
+      "value": "${selected}",
+      "isRequired": true,
+      "errorMessage": "Choose an option.",
+      "spacing": "Medium",
+      "items": [
+        {
+          "$data": "${slots}",
+          "value": "${ref}",
+          "title": "${label}",
+          "description": "${detail}"
+        }
+      ],
+      "fallback": {
+        "type": "Input.ChoiceSet",
+        "id": "slotRef",
+        "label": "Choose a time",
+        "style": "expanded",
+        "value": "${selected}",
+        "isRequired": true,
+        "choices": [
+          {
+            "$data": "${slots}",
+            "title": "${label}",
+            "value": "${ref}"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${notice}",
+          "size": "Small",
+          "wrap": true,
+          "isSubtle": true
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "title": "Review booking",
+      "verb": "appointment.review",
+      "style": "positive",
+      "data": {
+        "providerRef": "${doctor.ref}",
+        "serviceRef": "${serviceRef}"
+      }
+    },
+    {
+      "type": "Action.Execute",
+      "title": "Change doctor",
+      "verb": "providers.back",
+      "associatedInputs": "none",
+      "data": {
+        "keepActive": true
+      }
+    }
+  ]
+}

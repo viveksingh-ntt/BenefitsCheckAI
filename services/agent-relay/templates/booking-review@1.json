@@ -1,0 +1,80 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Review your appointment request in the portal.",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Review your appointment request",
+      "weight": "Bolder",
+      "size": "Medium",
+      "wrap": true,
+      "style": "heading"
+    },
+    {
+      "type": "TextBlock",
+      "text": "Nothing is booked until you confirm",
+      "isSubtle": true,
+      "size": "Small",
+      "spacing": "None",
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "spacing": "Medium",
+      "facts": [
+        {
+          "$data": "${facts}",
+          "title": "${title}",
+          "value": "${value}"
+        }
+      ]
+    },
+    {
+      "type": "Input.Text",
+      "id": "officeNote",
+      "label": "Note for the office (optional)",
+      "isMultiline": true,
+      "maxLength": 300,
+      "spacing": "Medium",
+      "placeholder": "For example, the mole is on your left shoulder"
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${notice}",
+          "size": "Small",
+          "wrap": true,
+          "isSubtle": true
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "title": "Confirm booking",
+      "verb": "appointment.confirm",
+      "style": "positive",
+      "data": {
+        "providerRef": "${providerRef}",
+        "slotRef": "${slotRef}",
+        "actionId": "${actionId}"
+      }
+    },
+    {
+      "type": "Action.Execute",
+      "title": "Change time",
+      "verb": "appointment.availability",
+      "associatedInputs": "none",
+      "data": {
+        "providerRef": "${providerRef}"
+      }
+    }
+  ]
+}

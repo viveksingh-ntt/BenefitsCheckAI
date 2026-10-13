@@ -1,0 +1,5 @@
+# Relay core + local Direct Line emulator (dev_server.py)
+starlette==1.6.0
+uvicorn[standard]==0.53.0
+pydantic==2.13.5
+anyio==4.15.1

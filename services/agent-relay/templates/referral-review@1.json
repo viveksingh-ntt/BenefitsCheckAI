@@ -1,0 +1,90 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Review the referral in the provider portal.",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Referral for review",
+      "weight": "Bolder",
+      "size": "Medium",
+      "wrap": true,
+      "style": "heading"
+    },
+    {
+      "type": "TextBlock",
+      "text": "Prepared for ${memberName} · not yet submitted",
+      "isSubtle": true,
+      "size": "Small",
+      "spacing": "None",
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "spacing": "Medium",
+      "facts": [
+        {
+          "$data": "${facts}",
+          "title": "${title}",
+          "value": "${value}"
+        }
+      ]
+    },
+    {
+      "type": "Input.Text",
+      "id": "clinicalNote",
+      "label": "Clinical note (optional)",
+      "isMultiline": true,
+      "maxLength": 500,
+      "spacing": "Medium",
+      "placeholder": "Reason, history or urgency"
+    },
+    {
+      "type": "Input.Toggle",
+      "id": "attest",
+      "title": "I confirm this referral is medically necessary",
+      "valueOn": "true",
+      "valueOff": "false",
+      "isRequired": true,
+      "errorMessage": "Confirm medical necessity to submit.",
+      "spacing": "Small"
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${notice}",
+          "size": "Small",
+          "wrap": true,
+          "isSubtle": true
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "title": "Submit referral",
+      "verb": "referral.submit",
+      "style": "positive",
+      "data": {
+        "providerRef": "${providerRef}",
+        "serviceRef": "${serviceRef}",
+        "actionId": "${actionId}"
+      }
+    },
+    {
+      "type": "Action.Execute",
+      "title": "Change doctor",
+      "verb": "providers.back",
+      "associatedInputs": "none",
+      "data": {
+        "keepActive": true
+      }
+    }
+  ]
+}

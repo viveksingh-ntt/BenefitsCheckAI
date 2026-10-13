@@ -1,0 +1,6 @@
+# Production host on the Microsoft 365 Agents SDK (host_m365.py). Pin exact versions after your first install.
+-r requirements.txt
+microsoft-agents-hosting-aiohttp>=0.5
+microsoft-agents-authentication-msal>=0.5
+microsoft-agents-activity>=0.5
+aiohttp>=3.10

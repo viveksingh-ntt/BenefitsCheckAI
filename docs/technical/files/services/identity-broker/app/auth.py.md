@@ -12,6 +12,21 @@ Source: [`services/identity-broker/app/auth.py`](../../../../../../services/iden
   - `SERVICE_AUTH=entra` validates an Entra v1 or v2 token for `BROKER_ENTRA_AUDIENCES`, then maps `azp`/`appid` to a service name through `SERVICE_CLIENTS` (`agent-relay=<id>,mcp-healthgen=<id>,apim=<id>`).
   - `SERVICE_AUTH=keys` compares shared keys in constant time (`SERVICE_KEYS`, dev only).
   - Each endpoint passes the services it allows, for example only `mcp-healthgen` may call `/oauth2/token`.
+- **`bearer(authorization)`:** extracts the bearer credential or raises a 401 `AuthError`.
+- **`AuthError`:** carries the HTTP status and stable error code used by the broker's request handlers.
+
+## Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `PORTAL_ISSUERS` | Comma-separated trusted portal assertion issuers. |
+| `PORTAL_JWKS_URL` or `PORTAL_JWKS_JSON` | Remote or inline portal verification keys. At least one must be configured. |
+| `PORTAL_ASSERTION_AUDIENCE` | Portal assertion audience; defaults to `healthgen-identity-broker`. |
+| `SERVICE_AUTH` | `entra` by default; set to `keys` for local development. |
+| `ENTRA_TENANT_ID`, `BROKER_ENTRA_AUDIENCES`, `SERVICE_CLIENTS` | Tenant, accepted service-token audiences, and service-name-to-client-id mappings in Entra mode. |
+| `SERVICE_KEYS` | Comma-separated `service-name=key` pairs in local key mode. |
+
+The broker endpoints pass an explicit allowlist to `authenticate`, so a valid service credential alone does not grant access to every internal route.
 
 ## How it's used in the real system
 

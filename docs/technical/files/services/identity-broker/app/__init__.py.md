@@ -4,4 +4,4 @@ Source: [`services/identity-broker/app/__init__.py`](../../../../../../services/
 
 > **Summary:** An empty file that makes `app/` a Python package (`uvicorn app.main:app`, relative imports between modules).
 
-Keep it free of side effects. `app.main` builds the ASGI app lazily, so importing it (in tests, for example) needs no environment variables.
+There is no package initialization logic here: importing `app` does not load configuration, create the database, or initialize cryptographic keys. `app.main` exposes a lazy ASGI application and initializes its dependencies on the first request.

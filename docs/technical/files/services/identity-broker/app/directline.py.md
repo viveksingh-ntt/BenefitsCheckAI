@@ -9,8 +9,10 @@ Source: [`services/identity-broker/app/directline.py`](../../../../../../service
 - **`DirectLineClient(secret, endpoint)`:**
   - `generate_token(user_id, user_name?, trusted_origins?)` calls `POST /v3/directline/tokens/generate`.
   - `reconnect(conversation_id, watermark?)` calls `GET /v3/directline/conversations/{id}` and returns a fresh token and stream URL.
-- Errors raise `DirectLineError(status)`, which the API turns into 502 or 503 `directline_unavailable`.
-- Localhost endpoints bypass environment proxies.
+- `_call` sends the channel secret as a bearer credential, serializes JSON request bodies, and decodes the JSON response. It uses a 10-second timeout by default.
+- HTTP failures raise `DirectLineError` with the upstream status. URL/network failures are represented as status 502. The broker handler maps these to `directline_unavailable` (502 for upstream 5xx responses, otherwise 503).
+- Localhost endpoints bypass environment proxies; the production endpoint uses the standard URL opener.
+- Conversation ids and watermarks are URL-escaped before being added to a reconnect request.
 
 ## Configuration
 
@@ -23,3 +25,5 @@ Source: [`services/identity-broker/app/directline.py`](../../../../../../service
 ## How it's used in the real system
 
 **Enhanced authentication** must be on for the Direct Line site. It binds `from.id` to the token's `user.id`, which the relay relies on, and it requires `dl_`-prefixed ids, which the broker generates. The secret exists only here, in Key Vault and in Bot Service.
+
+The browser receives only the generated Direct Line token and conversation metadata; it must never receive `DIRECTLINE_SECRET`. `main.py` calls this client from a worker thread so synchronous network operations do not block the async request handler.

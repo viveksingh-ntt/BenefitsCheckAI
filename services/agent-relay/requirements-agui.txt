@@ -1,0 +1,4 @@
+# AG-UI host (host_agui.py): relay core + chat-token verification. No Bot Framework or M365 Agents SDK.
+-r requirements.txt
+PyJWT[crypto]==2.14.0
+cryptography==50.0.1

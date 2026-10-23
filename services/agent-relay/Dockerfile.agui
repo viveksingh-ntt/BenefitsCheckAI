@@ -1,0 +1,14 @@
+# Agent relay as an AG-UI server (alternative to Dockerfile, which runs the Bot Service host).
+FROM python:3.13-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /srv
+COPY requirements.txt requirements-agui.txt ./
+RUN pip install --no-cache-dir -r requirements-agui.txt
+COPY relay ./relay
+COPY templates ./templates
+COPY host_agui.py ./
+RUN useradd --uid 10001 --no-create-home appuser
+USER 10001
+EXPOSE 8106
+# Long-lived SSE responses: keep the server's keep-alive above the edge's idle timeout.
+CMD ["uvicorn", "host_agui:app", "--host", "0.0.0.0", "--port", "8106", "--proxy-headers", "--timeout-keep-alive", "75"]

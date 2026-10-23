@@ -21,6 +21,8 @@ Steps marked ⚠️ were written from the documentation and not yet run against 
 | 12 | Portal integration | BFF token endpoint, widget configuration |
 | 13 | Smoke tests | |
 
+> **AG-UI instead of Bot Service and Direct Line?** Follow this runbook, skip step 8, and apply the delta in [ag-ui.md](ag-ui.md#deploy-delta-to-the-runbook).
+
 ## 0. Variables
 
 ```bash

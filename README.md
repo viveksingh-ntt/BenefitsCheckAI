@@ -43,6 +43,8 @@ flowchart LR
 | `handoff/` | n8n workflow | Checks the webhook signature, creates a ticket, notifies the care team and returns the ticket ref. |
 | `services/foundry-local`, `clients/portal-dev` | Local stand-ins | A scripted Foundry and APIM stand-in (not an LLM), plus a portal host page and BFF sample, so the whole stack runs on a laptop. |
 
+**AG-UI path (no Bot Service or Direct Line):** the widget can also talk to the relay over [AG-UI](https://docs.ag-ui.com) with `AgUiTransport` (`clients/agent-widget`), `host_agui.py` and the broker's `/v1/agui/token`. The Direct Line path is unchanged. See [docs/ag-ui.md](docs/ag-ui.md).
+
 **Technical documentation:** [docs/technical](docs/technical/README.md) has sequence diagrams across all layers and a page for every file.
 
 Design notes: [architecture](docs/architecture.md) · [identity and security](docs/identity-and-security.md) · [deployment runbook](docs/deployment-runbook.md) · [operations](docs/operations.md) · [agents](agents/README.md)
@@ -59,15 +61,18 @@ python scripts/local_stack.py          # starts 6 processes
 
 The page loads a vendored build of the widget (`clients/portal-dev/vendor`). To use your own build, set `WIDGET_DIST=../agent-widget/dist`.
 
+Over AG-UI instead: `pip install -r services/agent-relay/requirements-agui.txt`, then `python scripts/local_stack_agui.py` and open http://localhost:8081.
+
 ## Tests
 
 ```bash
 for s in healthgen-core-mock identity-broker mcp-healthgen agent-relay; do (cd services/$s && python -m unittest discover -s tests); done
 python -m unittest discover -s tests/e2e -v      # the full stack over HTTP, as the widget talks to it
 python agents/deploy_agents.py --env-file agents/foundry.env.example --dry-run
+(cd clients/agent-widget && npm install && npm test)   # widget unit tests, including AgUiTransport
 ```
 
-There are 56 tests:
+There are 56 tests on the Direct Line path, plus 28 for AG-UI (and 24 widget unit tests):
 
 | Suite | Tests | What it covers |
 | --- | --- | --- |
@@ -76,6 +81,10 @@ There are 56 tests:
 | MCP | 9 | Uses the real MCP client and the real broker and core. |
 | Relay | 19 | |
 | End to end | 5 | Member booking, provider referral, role checks, hand-off, Direct Line token binding. |
+| Broker, AG-UI | 5 | Chat token claims, session resolve, resume rules, logout, Direct Line switched off. |
+| Relay, AG-UI | 8 | SSE event mapping, interrupt and resume, decline, cancel, referral attestation, token and thread rules. |
+| End to end, AG-UI | 7 | The same journeys over `/agui/run`, plus decline, thread binding, resume after reload and CORS. |
+| Widget, AG-UI | 8 | `AgUiTransport` in `clients/agent-widget` (part of the 24 widget unit tests). |
 
 ## Not verified against Azure yet
 

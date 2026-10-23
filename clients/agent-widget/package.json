@@ -1,0 +1,66 @@
+{
+  "name": "@yourorg/agent-widget",
+  "version": "0.1.0",
+  "description": "Agentic Client Widget: an embeddable, agent-agnostic chat Web Component that talks Direct Line to an Agent relay and renders Adaptive Cards.",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "./dist/agent-widget.esm.js",
+  "module": "./dist/agent-widget.esm.js",
+  "types": "./dist/types/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/src/index.d.ts",
+      "import": "./dist/agent-widget.esm.js"
+    },
+    "./mock": {
+      "types": "./dist/types/src/mock/index.d.ts",
+      "import": "./dist/agent-widget-mock.esm.js"
+    },
+    "./sdk-renderer": {
+      "types": "./dist/types/src/cards/sdk-adapter.d.ts",
+      "import": "./dist/agent-widget-sdk-renderer.esm.js"
+    }
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "sideEffects": [
+    "./dist/agent-widget.esm.js",
+    "./dist/agent-widget.iife.js"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs && tsc -p tsconfig.json --emitDeclarationOnly --declaration --outDir dist/types",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "types": "tsc -p tsconfig.json --emitDeclarationOnly --declaration --outDir dist/types",
+    "test": "tsx --test test/unit/*.test.ts",
+    "test:e2e": "node scripts/build.mjs && node test/e2e/run.mjs",
+    "demo": "node scripts/build.mjs && node scripts/serve.mjs",
+    "artifact": "node scripts/build.mjs && node scripts/build-demo-artifact.mjs",
+    "test:sdk": "node scripts/build.mjs && node test/e2e/sdk-smoke.mjs"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.0",
+    "marked": "^18.0.0"
+  },
+  "peerDependencies": {
+    "adaptivecards": "^3.0.5"
+  },
+  "peerDependenciesMeta": {
+    "adaptivecards": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.28.0",
+    "playwright": "^1.56.0",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.0",
+    "adaptivecards": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

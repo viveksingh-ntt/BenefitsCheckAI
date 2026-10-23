@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HealthGen portal (local, AG-UI)</title>
+<style>
+  :root { --ink: #1d2433; --muted: #5b6475; --line: #e3e6ec; --brand: #0b5cad; --bg: #f6f7f9; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: #fff; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header strong { color: var(--brand); }
+  header .who { margin-left: auto; color: var(--muted); font-size: 14px; }
+  nav a { margin-right: 8px; font-size: 13px; color: var(--brand); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 20px; padding: 20px; max-width: 1280px; margin: 0 auto; }
+  section { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  .journeys button { margin: 6px 8px 0 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; font: inherit; }
+  .journeys button:hover { border-color: var(--brand); }
+  #log { margin-top: 14px; font: 12px/1.4 ui-monospace, monospace; color: var(--muted); max-height: 220px; overflow: auto; white-space: pre-wrap; }
+  .chat { height: calc(100vh - 110px); min-height: 560px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } .chat { height: 640px; } }
+</style>
+</head>
+<body>
+<header>
+  <strong>HealthGen</strong> <span id="portal-name"></span>
+  <nav>Sign in as: <a href="/?user=alex">Alex (member, HMO)</a><a href="/?user=jordan">Jordan (member, PPO)</a><a href="/?user=raman">Dr. Raman (provider, patient Alex)</a></nav>
+  <span class="who" id="who"></span>
+</header>
+<main>
+  <section>
+    <h1 id="title">Benefits</h1>
+    <p>Local run over <strong>AG-UI</strong>: portal BFF → identity broker (chat token) → agent relay <code>host_agui</code> (SSE) → Foundry stand-in → HealthGen MCP → core mock. No Bot Service or Direct Line.</p>
+    <div class="journeys">
+      <button id="j-benefit">Is a skin exam covered?</button>
+      <button id="j-service">Find a skin exam service</button>
+      <button id="j-doctor">Find a dermatologist</button>
+    </div>
+    <div id="log"></div>
+  </section>
+  <section class="chat">
+    <agent-widget id="widget" agent-id="care-assistant" mode="inline" environment="demo"></agent-widget>
+  </section>
+</main>
+<script src="/widget/agent-widget.iife.js"></script>
+<script>
+  const CONFIG = __CONFIG__;
+  const widget = document.getElementById('widget');
+  const log = (name, detail) => { const el = document.getElementById('log'); el.textContent = `${new Date().toLocaleTimeString()} ${name} ${JSON.stringify(detail)}\n` + el.textContent; };
+  document.getElementById('portal-name').textContent = CONFIG.portal === 'provider' ? 'Provider portal' : 'Member portal';
+  document.getElementById('who').textContent = 'Signed in as ' + (CONFIG.portal === 'provider' ? 'Dr. Priya Raman · Harbor Primary Care' : CONFIG.context.member.displayName);
+  document.getElementById('title').textContent = CONFIG.portal === 'provider' ? 'Patient: ' + CONFIG.context.member.displayName : 'Benefits';
+  widget.setAttribute('portal', CONFIG.portal);
+  widget.setAttribute('theme', CONFIG.portal + '-portal');
+  // The only change from the Direct Line page: inject AgUiTransport. Everything else in the widget is the same.
+  widget.init({
+    transport: () => new AgentWidget.AgUiTransport({
+      getToken: AgentWidget.tokenUrlFetcher('/api/agent/agui-token'),
+      endpoint: CONFIG.aguiEndpoint
+    }),
+    context: CONFIG.context,
+    allowedRoutes: ['/plan/*', '/care/*', '/providers/*'],
+    features: { suggestions: true, handoff: true, feedback: false, history: true }, // history: reload resumes the thread from GET /agui/threads/{id}
+    welcome: { suggestions: ['Is a skin check covered?', 'Find a dermatologist', 'Talk to a person'] },
+    telemetry: { sessionId: 'local-agui-' + CONFIG.user }
+  });
+  ['navigate', 'handoff', 'action', 'error', 'tokenExpired'].forEach((n) => widget.addEventListener(n, (e) => log(n, e.detail)));
+  document.getElementById('j-benefit').onclick = () => widget.startJourney('benefit-check', { serviceCode: 'derm-skin-exam' });
+  document.getElementById('j-service').onclick = () => widget.startJourney('service-search', { prompt: 'skin exam for a changing mole', zip: '10012' });
+  document.getElementById('j-doctor').onclick = () => widget.startJourney('doctor-search', { serviceCode: 'derm-skin-exam', zip: '10013', radiusMiles: 5 });
+</script>
+</body>
+</html>

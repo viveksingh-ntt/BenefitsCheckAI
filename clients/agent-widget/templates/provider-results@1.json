@@ -1,0 +1,104 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "In-network doctors are listed in the portal's Find Care page.",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "${title}",
+      "weight": "Bolder",
+      "size": "Medium",
+      "wrap": true,
+      "style": "heading"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${count(doctors)} matches · ${plan} · Within ${radius} miles of ${zip}",
+      "isSubtle": true,
+      "size": "Small",
+      "spacing": "None",
+      "wrap": true
+    },
+    {
+      "type": "Org.SelectableList",
+      "id": "providerRef",
+      "label": "Choose a doctor",
+      "value": "${selected}",
+      "isRequired": true,
+      "errorMessage": "Choose an option.",
+      "spacing": "Medium",
+      "items": [
+        {
+          "$data": "${doctors}",
+          "value": "${ref}",
+          "initials": "${initials}",
+          "title": "${name}",
+          "subtitle": "${specialty} · ${practice}",
+          "description": "${services}",
+          "highlight": "${network}",
+          "meta": "${address} · ${distanceText}"
+        }
+      ],
+      "fallback": {
+        "type": "Input.ChoiceSet",
+        "id": "providerRef",
+        "label": "Choose a doctor",
+        "style": "expanded",
+        "value": "${selected}",
+        "isRequired": true,
+        "choices": [
+          {
+            "$data": "${doctors}",
+            "title": "${name}",
+            "value": "${ref}"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${notice}",
+          "size": "Small",
+          "wrap": true,
+          "isSubtle": true
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "$when": "${audience == 'member'}",
+      "type": "Action.Execute",
+      "title": "Check availability",
+      "verb": "appointment.availability",
+      "style": "positive",
+      "data": {
+        "serviceRef": "${serviceRef}"
+      }
+    },
+    {
+      "$when": "${audience == 'provider'}",
+      "type": "Action.Execute",
+      "title": "Review referral",
+      "verb": "referral.review",
+      "style": "positive",
+      "data": {
+        "serviceRef": "${serviceRef}"
+      }
+    },
+    {
+      "type": "Action.Execute",
+      "title": "View doctor",
+      "verb": "provider.view",
+      "data": {
+        "keepActive": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- BEGIN-HEAD -->
+<title>Care Assistant Widget Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: mock portal chrome on top; integration controls (left) beside the live widget (right); stacks on phones. */
+:root {
+  --bg: #eef2f0;
+  --surface: #ffffff;
+  --ink: #17201c;
+  --muted: #59665f;
+  --line: #d6ddd9;
+  --accent: #1f6b57;
+  --accent-soft: #e2efe9;
+  --code-bg: #f6f8f7;
+  --font-ui: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1412; --surface: #161d1a; --ink: #e4ebe7; --muted: #9aa9a1; --line: #2a3530;
+    --accent: #6cc4a2; --accent-soft: #1d2d27; --code-bg: #111816; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1412; --surface: #161d1a; --ink: #e4ebe7; --muted: #9aa9a1; --line: #2a3530;
+  --accent: #6cc4a2; --accent-soft: #1d2d27; --code-bg: #111816; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-ui); }
+.portal-bar {
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.brand { font-weight: 700; letter-spacing: -.01em; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+.brand-mark { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); display: inline-block; }
+.portal-nav { display: flex; gap: 18px; font-size: 14px; color: var(--muted); flex-wrap: wrap; }
+.portal-nav span[aria-current] { color: var(--ink); font-weight: 600; }
+.portal-user { margin-left: auto; font-size: 13px; color: var(--muted); }
+.page { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 28px; max-width: 1180px; margin: 0 auto; padding-block: 28px 40px; padding-inline: 24px; }
+@media (max-width: 900px) { .page { grid-template-columns: minmax(0, 1fr); padding-inline: 16px; } }
+.intro h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -.015em; text-wrap: balance; }
+.intro p { margin: 0; color: var(--muted); max-width: 62ch; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; min-width: 0; }
+.controls { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.label { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; width: fit-content; max-width: 100%; }
+.seg button { border: 0; background: transparent; color: var(--ink); padding: 8px 14px; font: 500 14px var(--font-ui); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 8px 12px; font: 500 13.5px var(--font-ui); cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn code { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+select { font: 14px var(--font-ui); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); max-width: 100%; }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; font: 12.5px/1.45 var(--font-mono); }
+.log li { display: grid; grid-template-columns: 64px 92px minmax(0, 1fr); gap: 8px; padding: 6px 8px; border-radius: 6px; background: var(--code-bg); }
+.log time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.log b { color: var(--accent); font-weight: 500; }
+.log span { overflow-wrap: anywhere; }
+.log-empty { color: var(--muted); font-size: 13px; }
+pre { margin: 0; padding: 12px; border-radius: 8px; background: var(--code-bg); border: 1px solid var(--line); overflow-x: auto; font: 12.5px/1.55 var(--font-mono); }
+.widget-col { min-width: 0; }
+.widget-frame { height: min(780px, calc(100vh - 40px)); min-height: 620px; position: sticky; top: calc(16px + env(safe-area-inset-top, 0px)); }
+.widget-note { font-size: 12px; color: var(--muted); margin: 8px 2px 0; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13.5px; max-width: calc(100vw - 32px);
+}
+@media (prefers-reduced-motion: no-preference) { .toast { transition: opacity .2s ease; } }
+</style>
+<!-- END-HEAD -->
+</head>
+<body>
+<!-- BEGIN-BODY -->
+<header class="portal-bar">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Harbor Health</div>
+  <nav class="portal-nav" aria-label="Portal (mock)">
+    <span>Home</span><span aria-current="page">Benefits</span><span>Find care</span><span>Claims</span><span>Messages</span>
+  </nav>
+  <div class="portal-user" id="portal-user">Signed in as Alex Morgan</div>
+</header>
+
+<main class="page">
+  <section class="controls">
+    <div class="intro">
+      <h1>Care assistant widget playground</h1>
+      <p>The live <code>&lt;agent-widget&gt;</code> on the right runs against a mock Agent relay with illustrative data. Use these controls the way a portal page would: switch audience, change the selected member, deep-link into a journey, and watch the events the widget sends back to the host page.</p>
+    </div>
+
+    <div class="panel controls">
+      <div class="group">
+        <span class="label" id="portal-label">Portal</span>
+        <div class="seg" role="group" aria-labelledby="portal-label">
+          <button type="button" id="portal-member" aria-pressed="true">Member portal</button>
+          <button type="button" id="portal-provider" aria-pressed="false">Provider portal</button>
+        </div>
+      </div>
+
+      <div class="group" id="member-group" hidden>
+        <label class="label" for="member-select">Selected member · setContext()</label>
+        <select id="member-select">
+          <option value="mbr_7f3a">Alex Morgan · Harbor HMO · ID ending 4821</option>
+          <option value="mbr_2c91">Jordan Lee · Harbor PPO · ID ending 1307</option>
+        </select>
+        <p class="hint">Changing the member starts a new conversation, so answers never mix patients.</p>
+      </div>
+
+      <div class="group">
+        <span class="label">Deep-link from a portal page · startJourney()</span>
+        <div class="row">
+          <button class="btn" type="button" id="j-benefit">Benefit check</button>
+          <button class="btn" type="button" id="j-service">Service search <code>zip 10012</code></button>
+          <button class="btn" type="button" id="j-doctor">Doctor search <code>derm, 5 mi</code></button>
+          <button class="btn" type="button" id="j-new">New conversation</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="label">Events sent to the host page</span>
+        <ul class="log" id="event-log" aria-live="polite"></ul>
+        <p class="log-empty" id="log-empty">No events yet.</p>
+      </div>
+
+      <div class="group">
+        <span class="label">Embed code for this configuration</span>
+        <pre id="embed-code"></pre>
+      </div>
+    </div>
+  </section>
+
+  <aside class="widget-col" aria-label="Care assistant">
+    <div class="widget-frame">
+      <agent-widget id="widget" agent-id="care-assistant" portal="member" mode="inline" locale="en-US" environment="demo"></agent-widget>
+    </div>
+    <p class="widget-note">Mock relay · illustrative data · nothing is booked or submitted.</p>
+  </aside>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="../dist/agent-widget.iife.js"></script>
+<script src="../dist/agent-widget-mock.iife.js"></script>
+<script>
+(function () {
+  var widget = document.getElementById('widget');
+  var MEMBERS = {
+    mbr_7f3a: { ref: 'mbr_7f3a', displayName: 'Alex Morgan', planName: 'Harbor HMO', idLast4: '4821', status: 'Active' },
+    mbr_2c91: { ref: 'mbr_2c91', displayName: 'Jordan Lee', planName: 'Harbor PPO', idLast4: '1307', status: 'Active' }
+  };
+  var portal = 'member';
+  var logEl = document.getElementById('event-log');
+  var emptyEl = document.getElementById('log-empty');
+  var toastEl = document.getElementById('toast');
+  var toastTimer;
+
+  function toast(text) {
+    toastEl.textContent = text;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 2600);
+  }
+
+  function log(name, detail) {
+    emptyEl.hidden = true;
+    var li = document.createElement('li');
+    var t = document.createElement('time');
+    t.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\s?[AP]M$/, '');
+    var b = document.createElement('b');
+    b.textContent = name;
+    var s = document.createElement('span');
+    s.textContent = detail === undefined || detail === null ? '' : JSON.stringify(detail);
+    li.append(t, b, s);
+    logEl.prepend(li);
+  }
+
+  ['ready', 'open', 'close', 'action', 'tokenExpired', 'error'].forEach(function (name) {
+    widget.addEventListener(name, function (e) { log(name, e.detail); });
+  });
+  widget.addEventListener('navigate', function (e) {
+    log('navigate', e.detail);
+    toast('Portal would open ' + e.detail.route);
+  });
+  widget.addEventListener('handoff', function (e) {
+    log('handoff', e.detail);
+    toast('Contact center ticket ' + (e.detail.ticketRef || '') + ' opened');
+  });
+
+  function contextFor(memberRef) {
+    var m = Object.assign({}, MEMBERS[memberRef], { relationship: portal === 'provider' ? 'patient' : 'self' });
+    return {
+      member: m,
+      provider: portal === 'provider' ? { npi: '1093817465', orgName: 'Midtown Family Medicine' } : undefined,
+      page: { route: portal === 'provider' ? '/patients/' + memberRef : '/benefits', breadcrumb: portal === 'provider' ? 'Doctor search' : 'Benefit check' }
+    };
+  }
+
+  function renderEmbed() {
+    var memberRef = document.getElementById('member-select').value;
+    var m = MEMBERS[portal === 'provider' ? memberRef : 'mbr_7f3a'];
+    document.getElementById('embed-code').textContent =
+      '<script src="https://cdn.yourorg.com/agent-widget/v0/agent-widget.iife.js" integrity="sha384-…" crossorigin="anonymous"></' + 'script>\n' +
+      '<agent-widget agent-id="care-assistant" portal="' + portal + '" mode="docked" theme="' + portal + '-portal"></agent-widget>\n' +
+      '<script>\n' +
+      '  document.querySelector(\'agent-widget\').init({\n' +
+      '    tokenUrl: \'/api/agent/directline-token\',\n' +
+      '    context: { member: { ref: \'' + m.ref + '\', displayName: \'' + m.displayName + '\', planName: \'' + m.planName + '\', idLast4: \'' + m.idLast4 + '\', status: \'Active\', relationship: \'' + (portal === 'provider' ? 'patient' : 'self') + '\' } },\n' +
+      '    allowedRoutes: [\'/plan/*\', \'/care/*\', \'/providers/*\'],\n' +
+      '    features: { suggestions: true, handoff: true, feedback: true }\n' +
+      '  });\n' +
+      '</' + 'script>';
+  }
+
+  widget.init({
+    transport: function () { return new AgentWidgetMock.MockRelayTransport(); },
+    context: contextFor('mbr_7f3a'),
+    allowedRoutes: ['/plan/*', '/care/*', '/providers/*'],
+    features: { suggestions: true, handoff: true, feedback: false, attachments: true },
+    theme: { fontFamily: "'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif" },
+    telemetry: { sessionId: 'demo-session' }
+  });
+
+  function setPortal(next) {
+    portal = next;
+    document.getElementById('portal-member').setAttribute('aria-pressed', String(next === 'member'));
+    document.getElementById('portal-provider').setAttribute('aria-pressed', String(next === 'provider'));
+    document.getElementById('member-group').hidden = next !== 'provider';
+    document.getElementById('portal-user').textContent = next === 'provider' ? 'Signed in as Midtown Family Medicine · NPI 1093817465' : 'Signed in as Alex Morgan';
+    widget.setAttribute('portal', next);
+    var ref = next === 'provider' ? document.getElementById('member-select').value : 'mbr_7f3a';
+    widget.setContext(contextFor(ref));
+    widget.newThread();
+    renderEmbed();
+  }
+
+  document.getElementById('portal-member').addEventListener('click', function () { if (portal !== 'member') setPortal('member'); });
+  document.getElementById('portal-provider').addEventListener('click', function () {
+    if (portal === 'provider') return;
+    setPortal('provider');
+    widget.sendMessage('Find an in-network dermatologist near 10012 for ' + MEMBERS[document.getElementById('member-select').value].displayName.split(' ')[0] + '’s skin exam.');
+  });
+  document.getElementById('member-select').addEventListener('change', function (e) {
+    widget.setContext(contextFor(e.target.value));
+    renderEmbed();
+  });
+  document.getElementById('j-benefit').addEventListener('click', function () {
+    widget.startJourney('benefit-check', { serviceCode: 'derm-skin-exam' });
+  });
+  document.getElementById('j-service').addEventListener('click', function () {
+    widget.startJourney('service-search', { prompt: 'Help me find a skin exam for a changing mole near 10012.', zip: '10012' });
+  });
+  document.getElementById('j-doctor').addEventListener('click', function () {
+    widget.startJourney('doctor-search', { serviceCode: 'derm-skin-exam', zip: '10012', radiusMiles: 5 });
+  });
+  document.getElementById('j-new').addEventListener('click', function () { widget.newThread(); });
+
+  renderEmbed();
+  // Open in a realistic working state: prototype screen 2 (member benefit check).
+  widget.sendMessage('Is a dermatologist’s skin exam for a changing mole covered by my plan?');
+})();
+</script>
+<!-- END-BODY -->
+</body>
+</html>

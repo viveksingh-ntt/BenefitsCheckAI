@@ -1,0 +1,4 @@
+node_modules
+dist/
+artifact/
+test/e2e/screens/

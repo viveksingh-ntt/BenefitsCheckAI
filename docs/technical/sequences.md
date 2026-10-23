@@ -39,6 +39,7 @@ Contents:
 8. [Failures and guardrails](#8-failures-and-guardrails)
 9. [Deploying agents and plan documents](#9-deploying-agents-and-plan-documents)
 10. [Local stack and automated tests](#10-local-stack-and-automated-tests)
+11. [AG-UI path: token, turn, confirmation and reload](#11-ag-ui-path-token-turn-confirmation-and-reload)
 
 ---
 
@@ -519,3 +520,70 @@ sequenceDiagram
 | `services/mcp-healthgen/tests` | MCP client and server, broker, core mock | Fake Direct Line, fake n8n |
 | `services/agent-relay/tests` | Relay core, templates, envelope | In-process fakes for broker, cards and Foundry |
 | `tests/e2e` | All six processes over HTTP | portal-dev, the Direct Line emulator and foundry-local, instead of Azure |
+
+---
+
+## 11. AG-UI path: token, turn, confirmation and reload
+
+The same relay core behind a different front door: no Bot Service or Direct Line. Local run: `scripts/local_stack_agui.py`. The full mapping is in [ag-ui.md](../ag-ui.md).
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Widget<br/>AgUiTransport
+  participant P as Portal BFF<br/>[local: portal-dev-agui]
+  participant IB as Identity broker<br/>app.main_agui
+  participant H as Relay AG-UI host<br/>host_agui.py
+  participant RC as RelayCore (unchanged)
+  participant A as Agents → MCP → Core<br/>[local: foundry-local, mock core]
+
+  U->>P: POST /api/agent/agui-token {reason: start}
+  P->>IB: POST /v1/agui/token (Bearer portal assertion)
+  IB->>IB: verify assertion, create binding agui_… ↔ thr_…
+  IB-->>U: chat token {sub: agui_…, tid: thr_…, typ: agui-chat}
+
+  U->>H: POST /agui/run {threadId, messages, context, forwardedProps} + Bearer token
+  rect rgb(255,248,225)
+    H->>H: token valid? aud healthgen-agui? tid == threadId? body ≤ 64 KB?
+    H->>H: newest user message only, client history/state/tools ignored
+  end
+  H-->>U: RUN_STARTED
+  H->>RC: on_activity(message, send)
+  RC->>IB: resolve session (agui_… → portal principal)
+  RC->>A: Foundry turn with X-User-Context
+  A-->>RC: envelope (text, card_ref)
+  RC-->>H: typing, message + bound Adaptive Card
+  H-->>U: STEP_STARTED, TEXT_MESSAGE_*, ACTIVITY_SNAPSHOT adaptive_card, STATE_DELTA
+  H-->>U: RUN_FINISHED {outcome: success}
+
+  Note over U,A: "Review booking" pressed
+  U->>H: POST /agui/run {forwardedProps.action: appointment.review}
+  H->>RC: Action.Execute (safe-data filtered)
+  RC-->>H: booking-review card (actionId act_…)
+  H-->>U: ACTIVITY_SNAPSHOT card + RUN_FINISHED {outcome: interrupt, interrupts:[{id: act_…}]}
+
+  U->>H: POST /agui/run {resume:[{interruptId: act_…, status: resolved, payload:{approved: true, note}}]}
+  rect rgb(255,248,225)
+    H->>H: every open interrupt answered? id known?
+    H->>RC: Action.Execute appointment.confirm {actionId, officeNote}
+    RC->>IB: confirm act_… (one-time, hash-checked downstream)
+  end
+  RC->>A: submit_appointment_request(act_…)
+  A-->>RC: confirmation card
+  H-->>U: ACTIVITY_SNAPSHOT confirmation + RUN_FINISHED {outcome: success}
+
+  Note over U,H: page reload (features.history)
+  U->>P: POST /api/agent/agui-token {reason: resume, conversationId: thr_…}
+  P->>IB: same principal and member? extend binding : new thread
+  U->>H: GET /agui/threads/thr_…
+  H-->>U: MESSAGES_SNAPSHOT {messages, state, interrupts}
+```
+
+<sub>Rendered image for wikis and slides: [images/11-agui.svg](images/11-agui.svg)</sub>
+
+| Test suite | Real | Stand-in or fake |
+| --- | --- | --- |
+| `services/identity-broker/tests/test_agui_tokens.py` | Broker over HTTP | Test portal key, Direct Line off |
+| `services/agent-relay/tests/test_agui.py` | AG-UI host over HTTP + SSE, relay core | In-process fakes for broker, cards and Foundry |
+| `clients/agent-widget/test/unit/agui.test.ts` | `AgUiTransport` | Fake `fetch` returning SSE streams |
+| `tests/e2e/test_local_stack_agui.py` | All processes over HTTP + SSE | portal-dev-agui and foundry-local, instead of Azure |
